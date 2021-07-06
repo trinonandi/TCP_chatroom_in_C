@@ -42,6 +42,8 @@ void remove_client(int);
 void send_message(char* , int);
 void* manage_client(void* );
 
+
+// main function
 int main(int argc, char **argv){
 
     if(argc != 2){
@@ -68,6 +70,12 @@ int main(int argc, char **argv){
 
     // Signals
     signal(SIGPIPE, SIG_IGN);
+    int option = 1;
+    if(setsockopt(listenfd, SOL_SOCKET,(SO_REUSEPORT | SO_REUSEADDR),(char*)&option,sizeof(option)) < 0){
+		perror("ERROR: setsockopt failed");
+    return EXIT_FAILURE;
+	}
+
 
     // Bind
     if(bind(listenfd, (struct sockaddr*)&server_addr, sizeof(server_addr)) < 0){
@@ -81,7 +89,7 @@ int main(int argc, char **argv){
         return EXIT_FAILURE;
     }
 
-    printf("<==== WELCOME TO THE CHAT SERVER ====>\n");
+    printf("<==== CHATROOM SERVER LOG ====>\n");
 
     int run = 1;
     while(run){
@@ -114,6 +122,9 @@ int main(int argc, char **argv){
 
     return EXIT_SUCCESS;
 }
+
+
+// global function definitions
 
 void print_ip_addr(struct sockaddr_in addr){
     printf("%d.%d.%d.%d \n", 
@@ -171,7 +182,7 @@ void send_message(char* message, int uid){
     pthread_mutex_lock(&client_mutex); 
     for(int i=0;i<MAX_CLIENT; i++){
         if(clients[i] != NULL && clients[i]->uid != uid){
-            int result = send(clients[i]->sockfd, &message, strlen(message), 0);
+            int result = write(clients[i]->sockfd, message, strlen(message));
             if(result < 0){
                 printf("ERROR: failed to send message\n");
                 break;
@@ -182,7 +193,7 @@ void send_message(char* message, int uid){
 }
 
 // primary function to manage the clients
-void* manage_client(void *arg){
+void *manage_client(void *arg){
     char buffer[BUFFER_SIZE];
     char name[NAME_LEN];
     int leave_flag = 0; // 1 means a client has left the room
@@ -191,36 +202,33 @@ void* manage_client(void *arg){
     client_t *client = (client_t*)arg;
     
     // setting the client name from client side
-    int result = recv(client->sockfd, name, NAME_LEN, 0);
-    if(result <= 0 || strlen(name) < 2 || strlen(name) >= NAME_LEN - 1){
-        printf("ERROR: failed to set name. Name must be between 2 to 32 characters\n");
-        leave_flag = 1;
-    }
-    else{
-        strcpy(client->name, name);
-        sprintf(buffer, "%s client has joined the room\n", client->name);   // storing the message in buffer
-        printf("%s", buffer);   // printing the message in server console
-        send_message(buffer, client->uid);  // sending the message to all the clients
-    }
+    if(recv(client->sockfd, name, NAME_LEN, 0) <= 0 || strlen(name) <  2 || strlen(name) >= NAME_LEN-1){
+		printf("Didn't enter the name.\n");
+		leave_flag = 1;
+	} else{
+		strcpy(client->name, name);
+		sprintf(buffer, "%s has joined the room\n", client->name);
+		printf("%s", buffer);
+		send_message(buffer, client->uid);
+	}
 
     memset(buffer,'\0',BUFFER_SIZE);    // flushing the buffer
 
     while(leave_flag != 1){ // if leaf_flag == 1, then it means that client has left the room. so break
         int receive_result = recv(client->sockfd, buffer, BUFFER_SIZE, 0);
-        
-        if(receive_result > 0){
+        if(receive_result >= 0){
             if(strlen(buffer) > 0){
                 // means that the message received is not an empty message
                 // then send the message to all the clients
                 send_message(buffer, client->uid);
                 str_trim_lf(buffer, strlen(buffer));
 
-                // printing the sending log in server console
-                printf("%s ->> %s", buffer, client->name);
+                // printing the message log in server console
+                printf("%s\n", buffer);
             }
             else if(receive_result == 0 || strcmp(buffer, "exit") == 0){
                 // means that a client is leaving the room
-                sprintf(buffer, "%s has left the room", client->name);
+                sprintf(buffer, "%s has left the room\n", client->name);
                 printf("%s", buffer);
                 send_message(buffer, client->uid);
                 leave_flag = 1;
@@ -234,11 +242,10 @@ void* manage_client(void *arg){
 
         memset(buffer,'\0',BUFFER_SIZE);    // flushing the buffer
     }
-
-    remove_client(client->uid);     // removing client from clients[]
-    client_count--; // decreasing client count
     close(client->sockfd);  // closing the socket connection
+    remove_client(client->uid);     // removing client from clients[]
     free(client);   // deallocating memory occupied by client varible
+    client_count--; // decreasing client count
     pthread_detach(pthread_self()); // detatch from the client manage thread
     return NULL;
 }
