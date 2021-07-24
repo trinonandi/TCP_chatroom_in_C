@@ -27,9 +27,9 @@ typedef struct {
 
 
 // global variables
-static _Atomic unsigned int client_count = 0;
-static int uid = 10;
-client_t *clients[MAX_CLIENT];
+static _Atomic unsigned int client_count = 0;   // holds the number of clients currently present
+static int uid = 10;    // is used to provide each client with an unique user id
+client_t *clients[MAX_CLIENT];  // array to store all the clients present
 pthread_mutex_t client_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 
@@ -84,7 +84,7 @@ int main(int argc, char **argv){
     }
 
     // Listen
-    if(listen(listenfd, 10) < 0){
+    if(listen(listenfd, 5) < 0){
         printf("ERROR: listen error\n");
         return EXIT_FAILURE;
     }
@@ -100,7 +100,7 @@ int main(int argc, char **argv){
         if(client_count + 1 == MAX_CLIENT){
             printf("Maximum clients connected\n");
             printf("Rejected IP : ");
-            print_ip_addr(client_addr); // user defined function to print the rejected ip
+            print_ip_addr(client_addr); // user defined function to print the rejected IP
             close(connfd);
             continue;
         }
@@ -126,6 +126,7 @@ int main(int argc, char **argv){
 
 // global function definitions
 
+// extracts and prints the IP from sockaddr_in structure variables
 void print_ip_addr(struct sockaddr_in addr){
     printf("%d.%d.%d.%d \n", 
             addr.sin_addr.s_addr & 0xff,
@@ -135,11 +136,13 @@ void print_ip_addr(struct sockaddr_in addr){
         );
 }
 
+// resets the stdout
 void str_overwrite_stdout(){
     printf("\r%s", "> ");
     fflush(stdout);
 }
 
+// trims the newline character from the end of each input string
 void str_trim_lf(char* arr, int length){
     for(int i=0; i<length; i++){
         if(arr[i] == '\n'){
@@ -154,7 +157,7 @@ void str_trim_lf(char* arr, int length){
 void add_client(client_t *client){
     pthread_mutex_lock(&client_mutex);
     for(int i=0; i<MAX_CLIENT; i++){
-        if(!clients[i]){
+        if(clients[i] == NULL){
             clients[i] = client;
             break;
         }
@@ -209,7 +212,7 @@ void *manage_client(void *arg){
 		strcpy(client->name, name);
 		sprintf(buffer, "%s has joined the room\n", client->name);
 		printf("%s", buffer);
-		send_message(buffer, client->uid);
+		send_message(buffer, client->uid);  // sending the "user has joined" message to all other users
 	}
 
     memset(buffer,'\0',BUFFER_SIZE);    // flushing the buffer
@@ -249,3 +252,5 @@ void *manage_client(void *arg){
     pthread_detach(pthread_self()); // detatch from the client manage thread
     return NULL;
 }
+
+// gcc -Wall -g3 -fsanitize=address -pthread server.c -o server
