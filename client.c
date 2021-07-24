@@ -110,6 +110,7 @@ void catch_ctrl_c_and_exit(int sig){
     flag = 1;
 }
 
+// it will handle all the messages received from the server
 void receive_msg_handler(){
     char message[BUFFER_SIZE] = {};
     while(1){
@@ -130,6 +131,7 @@ void receive_msg_handler(){
     }
 }
 
+// it will send messages to the server
 void send_msg_handler(){
     char message[BUFFER_SIZE] = {};
 	char buffer[BUFFER_SIZE + 32] = {};
