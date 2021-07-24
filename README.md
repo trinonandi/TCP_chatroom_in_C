@@ -36,4 +36,4 @@ There are just two C files: The client.c and the server.c.
 
 ### Working Demo
 -----
-<img src ="https://github.com/trinonandi/TCP_chatroom_in_C/blob/main/demo.gif" alt="demo.gif" width="1600" height="900" />
+<img src ="https://github.com/trinonandi/TCP_chatroom_in_C/blob/main/demo.gif" alt="demo.gif" width="1366" height="768" />
